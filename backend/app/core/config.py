@@ -52,15 +52,19 @@ class Settings:
         "169.254.169.254",  # AWS metadata
     ]
     
-    # Storage
-    UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "uploads")
-    EVIDENCE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "evidence")
+    # Storage (Use /tmp in serverless environments like Vercel)
+    BASE_STORAGE: str = "/tmp" if os.getenv("VERCEL") else os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    UPLOAD_DIR: str = os.path.join(BASE_STORAGE, "storage", "uploads")
+    EVIDENCE_DIR: str = os.path.join(BASE_STORAGE, "storage", "evidence")
 
 settings = Settings()
 
-# Ensure storage directories exist
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
+# Ensure storage directories exist safely (prevent crashing on read-only filesystems)
+try:
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
+except Exception:
+    pass
 
 def verify_environment_variables():
     """
