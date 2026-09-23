@@ -102,7 +102,7 @@ const MainApp: React.FC = () => {
     setLoading(true);
     try {
       const textContent = file ? await file.text() : rawText;
-      const res = await fetch(`${API_BASE_URL}/api/v1/ingest`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/cases/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eml_content: textContent }),

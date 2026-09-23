@@ -63,20 +63,35 @@ async def ingest_email(
 ):
     enforce_rate_limit(request, ingest_limiter)
     """
-    Ingests a raw .eml file or raw text export.
+    Ingests a raw .eml file or raw text export (via JSON or multipart/form-data).
     Executes live parsing, header flight recording, identity analysis, url tracer,
     social engineering detection, threat scoring, attack graph building, and chain of custody generation.
     """
-    if not file and not raw_text:
-        raise HTTPException(status_code=400, detail="Provide an .eml file or raw email text.")
-        
-    if file:
-        eml_bytes = await file.read()
-        parsed = EmailParserService.parse_raw_eml(eml_bytes)
-        file_name = file.filename or "uploaded_email.eml"
-    else:
-        parsed = EmailParserService.parse_raw_eml(raw_text.encode('utf-8'))
-        file_name = "raw_text_export.txt"
+    eml_bytes = None
+    file_name = "uploaded_email.eml"
+
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            eml_str = body.get("eml_content") or body.get("raw_text") or body.get("content") or ""
+            if eml_str:
+                eml_bytes = eml_str.encode("utf-8")
+        except Exception:
+            pass
+
+    if not eml_bytes:
+        if file:
+            eml_bytes = await file.read()
+            file_name = file.filename or "uploaded_email.eml"
+        elif raw_text:
+            eml_bytes = raw_text.encode('utf-8')
+            file_name = "raw_text_export.txt"
+
+    if not eml_bytes:
+        raise HTTPException(status_code=400, detail="Provide an .eml file, raw email text, or json with eml_content.")
+
+    parsed = EmailParserService.parse_raw_eml(eml_bytes)
 
     case_num = len(cases_db) + 207
     case_id = f"CASE-{case_num}"
