@@ -78,3 +78,12 @@ def root():
 @app.get("/v1/health")
 def health():
     return {"status": "HEALTHY", "engine": "FastAPI Forensic Core"}
+
+@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"])
+def catch_all_fallback(full_path: str, request: Request):
+    return {
+        "status": "ONLINE",
+        "system": settings.PROJECT_NAME,
+        "matched_path": full_path,
+        "raw_path": request.url.path
+    }
