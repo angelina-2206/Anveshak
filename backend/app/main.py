@@ -1,49 +1,67 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import logging
+import traceback
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.endpoints import cases, investigate, rag, extension
 
+logger = logging.getLogger("uvicorn.error")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.core.config import verify_environment_variables
-    verify_environment_variables()
+    try:
+        from app.core.config import verify_environment_variables
+        verify_environment_variables()
+    except Exception as e:
+        logger.warning(f"Startup verification notice: {e}")
     yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="TRACE-X: An Interactive Cyber-Forensic Intelligence Workstation API for SIH 2026 Problem Statement 26106",
+    description="TRACE-X: Cyber-Forensic Intelligence Workstation API",
     lifespan=lifespan
 )
 
-# CORS middleware for React Vite Frontend and Chrome Extension
+# CORS middleware for React Vite Frontend, Vercel deployments, and Chrome Extension
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_origin_regex=r"chrome-extension://.*",
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API Routers
+# Global exception handler to return structured JSON errors instead of 500 HTML crashes
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_msg = f"Unhandled Exception: {exc}"
+    logger.error(f"{error_msg}\n{traceback.format_exc()}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "ERROR",
+            "detail": str(exc),
+            "type": type(exc).__name__,
+            "path": request.url.path
+        }
+    )
+
+# Include API Routers with multi-prefix fallbacks for Vercel route proxies
 app.include_router(cases.router, prefix=settings.API_V1_STR)
+app.include_router(cases.router, prefix="/api")
+app.include_router(cases.router, prefix="/v1")
+
 app.include_router(extension.router, prefix=settings.API_V1_STR)
 app.include_router(extension.router, prefix="/api")
+
 app.include_router(investigate.router, prefix=settings.API_V1_STR)
 app.include_router(investigate.router, prefix="/api")
-app.include_router(rag.router, prefix="/api")
 
-@app.middleware("http")
-async def add_security_headers(request, call_next):
-    response = await call_next(request)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    return response
+app.include_router(rag.router, prefix=settings.API_V1_STR)
+app.include_router(rag.router, prefix="/api")
 
 @app.get("/")
 @app.get("/api")
@@ -57,5 +75,6 @@ def root():
 
 @app.get("/health")
 @app.get("/api/health")
+@app.get("/v1/health")
 def health():
     return {"status": "HEALTHY", "engine": "FastAPI Forensic Core"}
