@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, status, Request
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 from app.db.seed_data import get_seed_cases
 from app.schemas.forensics import CaseDetail, ChainOfCustodyEvent, AttachmentItem
 from app.core.security import enforce_rate_limit, ingest_limiter, rag_limiter, sandbox_limiter
@@ -55,43 +56,54 @@ def get_case(case_id: str):
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
     return cases_db[case_id]
 
+class EmlIngestPayload(BaseModel):
+    eml_content: Optional[str] = None
+    raw_text: Optional[str] = None
+    content: Optional[str] = None
+
 @router.post("/ingest", response_model=CaseDetail)
 async def ingest_email(
     request: Request,
-    file: Optional[UploadFile] = File(None),
-    raw_text: Optional[str] = Form(None)
+    payload: Optional[EmlIngestPayload] = None
 ):
     enforce_rate_limit(request, ingest_limiter)
     """
-    Ingests a raw .eml file or raw text export (via JSON or multipart/form-data).
+    Ingests a raw .eml file or raw text export (via JSON or raw body).
     Executes live parsing, header flight recording, identity analysis, url tracer,
     social engineering detection, threat scoring, attack graph building, and chain of custody generation.
     """
     eml_bytes = None
     file_name = "uploaded_email.eml"
 
-    content_type = request.headers.get("content-type", "")
-    if "application/json" in content_type:
-        try:
-            body = await request.json()
-            eml_str = body.get("eml_content") or body.get("raw_text") or body.get("content") or ""
-            if eml_str:
-                eml_bytes = eml_str.encode("utf-8")
-        except Exception:
-            pass
+    if payload:
+        eml_str = payload.eml_content or payload.raw_text or payload.content
+        if eml_str:
+            eml_bytes = eml_str.encode("utf-8")
 
     if not eml_bytes:
-        if file:
-            eml_bytes = await file.read()
-            file_name = file.filename or "uploaded_email.eml"
-        elif raw_text:
-            eml_bytes = raw_text.encode('utf-8')
-            file_name = "raw_text_export.txt"
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            try:
+                body = await request.json()
+                eml_str = body.get("eml_content") or body.get("raw_text") or body.get("content") or ""
+                if eml_str:
+                    eml_bytes = eml_str.encode("utf-8")
+            except Exception:
+                pass
+
+    if not eml_bytes:
+        try:
+            raw_body = await request.body()
+            if raw_body:
+                eml_bytes = raw_body
+        except Exception:
+            pass
 
     if not eml_bytes:
         raise HTTPException(status_code=400, detail="Provide an .eml file, raw email text, or json with eml_content.")
 
     parsed = EmailParserService.parse_raw_eml(eml_bytes)
+
 
     case_num = len(cases_db) + 207
     case_id = f"CASE-{case_num}"
