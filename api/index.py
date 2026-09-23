@@ -11,5 +11,9 @@ if root_dir not in sys.path:
 
 from app.main import app
 
-handler = app
+try:
+    from mangum import Mangum
+    handler = Mangum(app, lifespan="off")
+except Exception:
+    handler = app
 
