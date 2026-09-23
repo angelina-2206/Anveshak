@@ -4,7 +4,12 @@ import hashlib
 import requests
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
-from eth_account import Account
+
+try:
+    from eth_account import Account
+except ImportError:
+    Account = None
+
 from app.core.config import settings
 
 logger = logging.getLogger("uvicorn.error")
@@ -43,8 +48,8 @@ class BlockchainService:
         has_rpc = bool(settings.ALCHEMY_RPC_URL and settings.ALCHEMY_RPC_URL.strip())
         has_key = bool(settings.BLOCKCHAIN_PRIVATE_KEY and settings.BLOCKCHAIN_PRIVATE_KEY.strip())
 
-        if not has_rpc or not has_key:
-            logger.warning("[Blockchain-Polygon] Alchemy RPC or Private Key missing. Recording under MOCK_ANCHORED status.")
+        if not has_rpc or not has_key or Account is None:
+            logger.warning("[Blockchain-Polygon] Alchemy RPC, Private Key, or eth_account missing. Recording under MOCK_ANCHORED status.")
             mock_tx_hash = "0x" + hashlib.sha256(f"MOCK-TX-{case_id_or_target}-{evidence_hash}".encode('utf-8')).hexdigest()
             record = {
                 "evidence_hash": evidence_hash,
