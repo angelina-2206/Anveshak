@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { CaseDetail, ChainOfCustodyEvent } from '../../types';
 import { PageHeader } from '../common/PageHeader';
+import { API_BASE_URL } from '../../config/api';
 
 interface BlockchainProofViewProps {
   caseDetail: CaseDetail;
@@ -147,7 +148,7 @@ export const BlockchainProofView: React.FC<BlockchainProofViewProps> = ({ caseDe
   const handleVerifyEvidence = async () => {
     setVerifying(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/cases/${caseDetail.case_id}/blockchain/verify`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/cases/${caseDetail.case_id}/blockchain/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

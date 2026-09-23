@@ -6,6 +6,7 @@ import {
 import { CaseDetail } from '../../types';
 import { PageHeader } from '../common/PageHeader';
 import { PdfDownloadMenu } from '../common/PdfDownloadMenu';
+import { API_BASE_URL } from '../../config/api';
 
 interface EvidenceVaultViewProps {
   caseDetail: CaseDetail;
@@ -37,7 +38,7 @@ export const EvidenceVaultView: React.FC<EvidenceVaultViewProps> = ({ caseDetail
 
   const downloadStix = async () => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/cases/${caseDetail.case_id}/stix`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/cases/${caseDetail.case_id}/stix`);
       const stixData = await res.json();
       const blob = new Blob([JSON.stringify(stixData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);

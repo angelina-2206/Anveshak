@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { CaseDetail, AttachmentItem } from '../../types';
 import { PageHeader } from '../common/PageHeader';
+import { API_BASE_URL } from '../../config/api';
 
 interface AttachmentSandboxViewProps {
   caseDetail: CaseDetail;
@@ -148,7 +149,7 @@ const SandboxCard: React.FC<{ att: AttachmentItem; caseId: string; idx: number }
         setStepIdx(prev => (prev < DETONATION_STEPS.length ? prev + 1 : prev));
       }, 400);
 
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/cases/${caseId}/sandbox/${att.attachment_id}/detonate`, { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/api/v1/cases/${caseId}/sandbox/${att.attachment_id}/detonate`, { method: 'POST' });
       clearInterval(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

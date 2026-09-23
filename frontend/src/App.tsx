@@ -21,6 +21,8 @@ import { LandingPage } from './components/layout/LandingPage';
 import { CaseDetail, UserRole } from './types';
 import { ThemeProvider } from './context/ThemeContext';
 
+import { API_BASE_URL } from './config/api';
+
 const MainApp: React.FC = () => {
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [cases, setCases] = useState<CaseDetail[]>([]);
@@ -37,12 +39,12 @@ const MainApp: React.FC = () => {
       const deepLinkCaseId = urlParams.get('case') || urlParams.get('investigate');
       const deepLinkTab = urlParams.get('tab');
 
-      const res = await fetch('http://127.0.0.1:8000/api/v1/cases');
+      const res = await fetch(`${API_BASE_URL}/api/v1/cases`);
       const summaries = await res.json();
       
       if (summaries.length > 0) {
         const allDetails = await Promise.all(
-          summaries.map((s: any) => fetch(`http://127.0.0.1:8000/api/v1/cases/${s.case_id}`).then(r => r.json()))
+          summaries.map((s: any) => fetch(`${API_BASE_URL}/api/v1/cases/${s.case_id}`).then(r => r.json()))
         );
         setCases(allDetails);
 
@@ -57,7 +59,7 @@ const MainApp: React.FC = () => {
           } else {
             // Fetch case directly in case it was just captured by extension
             try {
-              const singleRes = await fetch(`http://127.0.0.1:8000/api/v1/cases/${deepLinkCaseId.toUpperCase()}`);
+              const singleRes = await fetch(`${API_BASE_URL}/api/v1/cases/${deepLinkCaseId.toUpperCase()}`);
               if (singleRes.ok) {
                 const singleDetail = await singleRes.json();
                 setActiveCase(singleDetail);
@@ -100,7 +102,7 @@ const MainApp: React.FC = () => {
     setLoading(true);
     try {
       const textContent = file ? await file.text() : rawText;
-      const res = await fetch('http://127.0.0.1:8000/api/v1/ingest', {
+      const res = await fetch(`${API_BASE_URL}/api/v1/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eml_content: textContent }),
@@ -108,7 +110,7 @@ const MainApp: React.FC = () => {
       const result = await res.json();
       await fetchCases();
       if (result.case_id) {
-        const newDetailRes = await fetch(`http://127.0.0.1:8000/api/v1/cases/${result.case_id}`);
+        const newDetailRes = await fetch(`${API_BASE_URL}/api/v1/cases/${result.case_id}`);
         const newDetail = await newDetailRes.json();
         setActiveCase(newDetail);
         setActiveTab('email_forensics');
