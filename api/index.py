@@ -1,10 +1,15 @@
-from http.server import BaseHTTPRequestHandler
-import json
+import sys
+import os
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps({"status": "HEALTHY", "engine": "Vercel Python Native Handler"}).encode('utf-8'))
-        return
+# Set up paths so Python can import modules inside backend/
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+backend_dir = os.path.join(root_dir, "backend")
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
+from app.main import app
+
+handler = app
+
