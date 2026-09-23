@@ -25,7 +25,7 @@ def _get_client() -> QdrantClient:
         url = settings.QDRANT_URL
         api_key = settings.QDRANT_API_KEY or None
         logger.info(f"[QdrantService] Connecting to Qdrant at {url}")
-        _client = QdrantClient(url=url, api_key=api_key, timeout=2.0, check_compatibility=False)
+        _client = QdrantClient(url=url, api_key=api_key, timeout=10.0, check_compatibility=False)
     return _client
 
 
