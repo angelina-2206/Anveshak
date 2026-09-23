@@ -118,12 +118,14 @@ class handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            cl = self.headers.get('Content-Length', '0')
+            cl = int(self.headers.get('Content-Length', 0))
+            raw_body = self.rfile.read(cl) if cl > 0 else b""
             return self.send_json_response({
-                "status": "POST_DIAGNOSTIC_OK",
-                "content_length": cl,
-                "has_rfile": hasattr(self, "rfile")
+                "status": "READ_BODY_OK",
+                "bytes_read": len(raw_body),
+                "preview": raw_body.decode('utf-8', errors='ignore')[:100]
             })
         except Exception as e:
-            return self.send_error_response(f"POST error: {e}", 500)
+            return self.send_error_response(f"Read body error: {e}", 500)
+
 
