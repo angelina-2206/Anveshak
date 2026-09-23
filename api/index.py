@@ -1,17 +1,10 @@
-import sys
-import os
+from http.server import BaseHTTPRequestHandler
+import json
 
-# Root directory of repository on Vercel (/var/task)
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-backend_dir = os.path.join(root_dir, "backend")
-
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
-
-from app.main import app
-
-handler = app
-
-__all__ = ["app", "handler"]
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "HEALTHY", "engine": "Vercel Python Native Handler"}).encode('utf-8'))
+        return
