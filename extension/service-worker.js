@@ -1,78 +1,113 @@
 // src/api/tracex-client.ts
-var DEFAULT_API_BASE = "http://localhost:8000/api/v1";
-var TraceXClient = class {
-  apiBase;
-  constructor(apiBase = DEFAULT_API_BASE) {
-    this.apiBase = apiBase;
-  }
-  async analyzeEmail(email) {
+var LOCAL_API_BASE = "http://localhost:8000/api/v1";
+var PROD_API_BASE = "https://anveshak-xi.vercel.app/api/v1";
+async function checkLocalhostRunning() {
+  try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12e3);
+    const timeoutId = setTimeout(() => controller.abort(), 800);
+    const res = await fetch("http://localhost:8000/health", { method: "GET", signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) return true;
+  } catch {
     try {
-      const response = await fetch(`${this.apiBase}/extension/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          source: email.source,
-          sender: email.sender,
-          recipients: email.recipients,
-          subject: email.subject,
-          timestamp: email.timestamp,
-          body_text: email.bodyText,
-          raw_headers: email.rawHeaders,
-          urls: email.urls,
-          message_id: email.messageId
-        }),
-        signal: controller.signal
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 800);
+      await fetch("http://localhost:5173", { method: "HEAD", mode: "no-cors", signal: controller.signal });
       clearTimeout(timeoutId);
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error("Rate limit exceeded. Please wait a moment before analyzing again.");
-        }
-        throw new Error(`Server returned error status (${response.status})`);
-      }
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === "AbortError") {
-        throw new Error("Analysis timed out. Anveshak investigation engine did not respond in time.");
-      }
-      throw new Error(err.message || "Unable to connect to Anveshak forensic backend.");
-    }
-  }
-  async traceLink(url) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8e3);
-    try {
-      const response = await fetch(`${this.apiBase}/extension/trace-link`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ url }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      if (!response.ok) {
-        throw new Error(`Link trace failed (${response.status})`);
-      }
-      return await response.json();
-    } catch (err) {
-      clearTimeout(timeoutId);
-      throw new Error(err.message || "Failed to analyze URL intelligence.");
-    }
-  }
-  async checkHealth() {
-    try {
-      const res = await fetch("http://localhost:8000/health", { method: "GET" });
-      return res.ok;
+      return true;
     } catch {
       return false;
     }
+  }
+  return false;
+}
+var TraceXClient = class {
+  apiBase;
+  constructor(apiBase = LOCAL_API_BASE) {
+    this.apiBase = apiBase;
+  }
+  async getWorkingApiBases() {
+    const isLocal = await checkLocalhostRunning();
+    if (isLocal) {
+      return [LOCAL_API_BASE, PROD_API_BASE];
+    } else {
+      return [PROD_API_BASE, LOCAL_API_BASE];
+    }
+  }
+  async analyzeEmail(email) {
+    const bases = await this.getWorkingApiBases();
+    let lastError = null;
+    for (const base of bases) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12e3);
+      try {
+        const response = await fetch(`${base}/extension/analyze`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            source: email.source,
+            sender: email.sender,
+            recipients: email.recipients,
+            subject: email.subject,
+            timestamp: email.timestamp,
+            body_text: email.bodyText,
+            raw_headers: email.rawHeaders,
+            urls: email.urls,
+            message_id: email.messageId
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          if (response.status === 429) {
+            throw new Error("Rate limit exceeded. Please wait a moment before analyzing again.");
+          }
+          throw new Error(`Server returned error status (${response.status})`);
+        }
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === "AbortError") {
+          lastError = new Error("Analysis timed out. Anveshak investigation engine did not respond in time.");
+        } else {
+          lastError = err;
+        }
+      }
+    }
+    throw lastError || new Error("Unable to connect to Anveshak forensic backend.");
+  }
+  async traceLink(url) {
+    const bases = await this.getWorkingApiBases();
+    let lastError = null;
+    for (const base of bases) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8e3);
+      try {
+        const response = await fetch(`${base}/extension/trace-link`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ url }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw new Error(`Link trace failed (${response.status})`);
+        }
+        return await response.json();
+      } catch (err) {
+        clearTimeout(timeoutId);
+        lastError = err;
+      }
+    }
+    throw lastError || new Error("Failed to analyze URL intelligence.");
+  }
+  async checkHealth() {
+    return checkLocalhostRunning();
   }
 };
 var tracexClient = new TraceXClient();

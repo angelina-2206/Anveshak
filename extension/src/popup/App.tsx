@@ -6,7 +6,7 @@ import { EvidenceWhyList } from '../components/EvidenceWhyList';
 import { UrlIntelligenceList } from '../components/UrlIntelligenceList';
 import { InvestigationTimeline } from '../components/InvestigationTimeline';
 import { ExtractedEmail, AnalysisVerdict, ExtensionState } from '../types/investigation';
-import { tracexClient } from '../api/tracex-client';
+import { tracexClient, checkLocalhostRunning, LOCAL_WEB_BASE, PROD_WEB_BASE } from '../api/tracex-client';
 import { Shield, Mail, RotateCw, ExternalLink, Bookmark, RefreshCw, AlertCircle } from 'lucide-react';
 
 const DEMO_SAMPLES: Record<string, { label: string; tag: string; desc: string; data: ExtractedEmail }> = {
@@ -167,8 +167,13 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleOpenDashboard = (verdict?: AnalysisVerdict) => {
-    const targetUrl = verdict?.deep_link_url || 'http://localhost:5173/?tab=email_forensics';
+  const handleOpenDashboard = async (verdict?: AnalysisVerdict) => {
+    const isLocal = await checkLocalhostRunning();
+    const baseUrl = isLocal ? LOCAL_WEB_BASE : PROD_WEB_BASE;
+    let targetUrl = verdict?.deep_link_url || `${baseUrl}/?tab=email_forensics`;
+    if (!isLocal && targetUrl.includes('http://localhost:5173')) {
+      targetUrl = targetUrl.replace('http://localhost:5173', PROD_WEB_BASE);
+    }
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
       chrome.tabs.create({ url: targetUrl });
     } else {

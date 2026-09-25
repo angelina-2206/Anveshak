@@ -52,7 +52,8 @@
     "https://outlook.office365.com/*",
     "http://127.0.0.1:8000/*",
     "http://localhost:8000/*",
-    "http://localhost:5173/*"
+    "http://localhost:5173/*",
+    "https://anveshak-xi.vercel.app/*"
   ],
   "icons": {
     "16": "icons/icon-16.png",
